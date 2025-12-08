@@ -1,0 +1,14 @@
+{
+  "name": "streamcine-addon",
+  "version": "1.0.0",
+  "description": "Addon StreamCine - IPTV + Filmes + Séries + Novelas + Pedidos via CSV",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "W7",
+  "license": "MIT",
+  "dependencies": {
+    "stremio-addon-sdk": "^1.5.0"
+  }
+}

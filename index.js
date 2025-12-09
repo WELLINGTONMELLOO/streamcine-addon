@@ -38,7 +38,7 @@ function detectDelimiter(line) {
   return ';';
 }
 
-// ---------- Helper genérico pra ler CSV ----------
+// ---------- Helper genérico pra ler CSV (com correção de encoding) ----------
 
 function readCsv(fileName, requiredCols) {
   const csvPath = path.join(__dirname, fileName);
@@ -50,7 +50,23 @@ function readCsv(fileName, requiredCols) {
 
   console.log('[StreamCine] Lendo', csvPath);
 
-  const raw = fs.readFileSync(csvPath, 'utf8');
+  // Lê como buffer para poder tentar UTF-8 e, se der problema, cair para latin1
+  const rawBuffer = fs.readFileSync(csvPath);
+
+  // Tenta decodificar como UTF-8 primeiro
+  let raw = rawBuffer.toString('utf8');
+
+  // Conta quantos caracteres U+FFFD (�) apareceram
+  const invalidCount = (raw.match(/\uFFFD/g) || []).length;
+
+  if (invalidCount > 0) {
+    console.warn(
+      `[StreamCine] Caracteres inválidos detectados em UTF-8 (${invalidCount}) em ${fileName}. ` +
+        'Tentando redecodificar como latin1...'
+    );
+    // Lê novamente como latin1 (ISO-8859-1 / Windows-1252)
+    raw = rawBuffer.toString('latin1');
+  }
 
   const linesAll = raw
     .split(/\r?\n/) // quebra de linha correta
@@ -108,9 +124,9 @@ function loadChannelsFromCsv() {
   const urlIndex = header.indexOf('url');
 
   let logoIndex = header.indexOf('logo');
-  if (logoIndex === -1) {
-    logoIndex = header.indexOf('tvg-logo');
-  }
+  if (logoIndex === -1) logoIndex = header.indexOf('poster');
+  if (logoIndex === -1) logoIndex = header.indexOf('capa');
+  if (logoIndex === -1) logoIndex = header.indexOf('tvg-logo');
 
   const channels = [];
 
@@ -178,8 +194,18 @@ function loadMoviesFromCsv() {
   const titleIndex = header.indexOf('titulo');
   const yearIndex = header.indexOf('ano');
   const genreIndex = header.indexOf('genero');
-  const logoIndex = header.indexOf('logo');
-  const fundoIndex = header.indexOf('fundo');
+
+  // aceita logo/poster/capa/tvg-logo
+  let logoIndex = header.indexOf('logo');
+  if (logoIndex === -1) logoIndex = header.indexOf('poster');
+  if (logoIndex === -1) logoIndex = header.indexOf('capa');
+  if (logoIndex === -1) logoIndex = header.indexOf('tvg-logo');
+
+  // aceita fundo/background/fanart
+  let fundoIndex = header.indexOf('fundo');
+  if (fundoIndex === -1) fundoIndex = header.indexOf('background');
+  if (fundoIndex === -1) fundoIndex = header.indexOf('fanart');
+
   const sinopseIndex = header.indexOf('sinopse');
   const urlIndex = header.indexOf('url');
 
@@ -237,9 +263,11 @@ function loadMoviesFromCsv() {
     return 0;
   });
 
+  const withLogo = movies.filter((m) => m.logo && m.logo.length > 0).length;
   console.log(
     '[StreamCine] Total de filmes carregados do CSV (filmes.csv):',
-    movies.length
+    movies.length,
+    '| com logo:', withLogo
   );
 
   MOVIES_CACHE = movies;
@@ -265,8 +293,16 @@ function loadPersonalMoviesFromCsv() {
   const titleIndex = header.indexOf('titulo');
   const yearIndex = header.indexOf('ano');
   const genreIndex = header.indexOf('genero');
-  const logoIndex = header.indexOf('logo');
-  const fundoIndex = header.indexOf('fundo');
+
+  let logoIndex = header.indexOf('logo');
+  if (logoIndex === -1) logoIndex = header.indexOf('poster');
+  if (logoIndex === -1) logoIndex = header.indexOf('capa');
+  if (logoIndex === -1) logoIndex = header.indexOf('tvg-logo');
+
+  let fundoIndex = header.indexOf('fundo');
+  if (fundoIndex === -1) fundoIndex = header.indexOf('background');
+  if (fundoIndex === -1) fundoIndex = header.indexOf('fanart');
+
   const sinopseIndex = header.indexOf('sinopse');
   const urlIndex = header.indexOf('url');
 
@@ -319,9 +355,11 @@ function loadPersonalMoviesFromCsv() {
     return 0;
   });
 
+  const withLogo = movies.filter((m) => m.logo && m.logo.length > 0).length;
   console.log(
     '[StreamCine] Total de filmes pedidos carregados (filmes_pessoais.csv):',
-    movies.length
+    movies.length,
+    '| com logo:', withLogo
   );
 
   PERSONAL_MOVIES_CACHE = movies;
@@ -364,9 +402,9 @@ function loadSeriesFromCsv() {
   const urlIndex = header.indexOf('url');
 
   let logoIndex = header.indexOf('logo');
-  if (logoIndex === -1) {
-    logoIndex = header.indexOf('tvg-logo');
-  }
+  if (logoIndex === -1) logoIndex = header.indexOf('poster');
+  if (logoIndex === -1) logoIndex = header.indexOf('capa');
+  if (logoIndex === -1) logoIndex = header.indexOf('tvg-logo');
 
   // regex pra "Nome S01E08", "Nome [L] S05E14", etc.
   const pattern = /^(.+?)(?:\s*\[.*?\])?\s+S(\d+)E(\d+)$/i;
@@ -511,9 +549,9 @@ function loadNovelasFromCsv() {
   const groupIndex = header.indexOf('grupo');
   const urlIndex = header.indexOf('url');
   let logoIndex = header.indexOf('logo');
-  if (logoIndex === -1) {
-    logoIndex = header.indexOf('tvg-logo');
-  }
+  if (logoIndex === -1) logoIndex = header.indexOf('poster');
+  if (logoIndex === -1) logoIndex = header.indexOf('capa');
+  if (logoIndex === -1) logoIndex = header.indexOf('tvg-logo');
 
   // Mesmo padrão de "Nome S01E280" etc.
   const pattern = /^(.+?)(?:\s*\[.*?\])?\s+S(\d+)E(\d+)$/i;
@@ -694,7 +732,7 @@ function pickBestStream(title, originalUrl) {
 
 const manifest = {
   id: 'org.streamcine.iptv',
-  version: '5.3.0', // versão para forçar recarregamento no Stremio
+  version: '5.4.0', // versão para forçar recarregamento no Stremio após mudanças
   name: 'StreamCine',
   description:
     'Canais de TV, filmes, filmes pedidos, séries e novelas a partir de listas e CSVs personalizados',

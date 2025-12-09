@@ -745,25 +745,37 @@ const manifest = {
       type: 'movie',
       id: 'streamcine_movies',
       name: 'StreamCine Filmes',
-      extra: []
+      extra: [
+        { name: 'search', isRequired: false },
+        { name: 'skip', isRequired: false }
+      ]
     },
     {
       type: 'movie',
       id: 'streamcine_personal_movies',
       name: 'StreamCine Pedidos',
-      extra: []
+      extra: [
+        { name: 'search', isRequired: false },
+        { name: 'skip', isRequired: false }
+      ]
     },
     {
       type: 'series',
       id: 'streamcine_series',
       name: 'StreamCine Séries',
-      extra: []
+      extra: [
+        { name: 'search', isRequired: false },
+        { name: 'skip', isRequired: false }
+      ]
     },
     {
       type: 'series',
       id: 'streamcine_novelas',
       name: 'StreamCine Novelas',
-      extra: []
+      extra: [
+        { name: 'search', isRequired: false },
+        { name: 'skip', isRequired: false }
+      ]
     }
   ],
 
@@ -775,7 +787,7 @@ const manifest = {
 
 const builder = new addonBuilder(manifest);
 
-// ---------- CATALOG HANDLER (com IPTV paginado) ----------
+// ---------- CATALOG HANDLER (todos paginados) ----------
 
 builder.defineCatalogHandler(async (args) => {
   const { type, id, extra = {} } = args;
@@ -821,15 +833,35 @@ builder.defineCatalogHandler(async (args) => {
     return { metas };
   }
 
-  // FILMES (lista principal)
+  // FILMES (lista principal) - paginado
   if (type === 'movie' && id === 'streamcine_movies') {
     const movies = loadMoviesFromCsv();
+
+    const pageSize = 100;
+    const skip = extra.skip ? parseInt(extra.skip, 10) || 0 : 0;
+    const search = (extra.search || '').toLowerCase().trim();
+
+    let filtered = movies;
+
+    if (search) {
+      filtered = movies.filter((m) => {
+        const title = (m.title || '').toLowerCase();
+        const genre = (m.genre || '').toLowerCase();
+        return title.includes(search) || genre.includes(search);
+      });
+    }
+
+    const page = filtered.slice(skip, skip + pageSize);
+
     console.log(
-      '[StreamCine] Catálogo FILMES solicitado. Total de filmes:',
-      movies.length
+      '[StreamCine] Catálogo FILMES solicitado.',
+      'Total:', movies.length,
+      '| filtrados:', filtered.length,
+      '| skip:', skip,
+      '| retornando:', page.length
     );
 
-    const metas = movies.map((m) => ({
+    const metas = page.map((m) => ({
       id: m.id,
       type: 'movie',
       name: m.title,
@@ -843,15 +875,35 @@ builder.defineCatalogHandler(async (args) => {
     return { metas };
   }
 
-  // FILMES PEDIDOS
+  // FILMES PEDIDOS - paginado
   if (type === 'movie' && id === 'streamcine_personal_movies') {
     const movies = loadPersonalMoviesFromCsv();
+
+    const pageSize = 100;
+    const skip = extra.skip ? parseInt(extra.skip, 10) || 0 : 0;
+    const search = (extra.search || '').toLowerCase().trim();
+
+    let filtered = movies;
+
+    if (search) {
+      filtered = movies.filter((m) => {
+        const title = (m.title || '').toLowerCase();
+        const genre = (m.genre || '').toLowerCase();
+        return title.includes(search) || genre.includes(search);
+      });
+    }
+
+    const page = filtered.slice(skip, skip + pageSize);
+
     console.log(
-      '[StreamCine] Catálogo FILMES PEDIDOS solicitado. Total de filmes:',
-      movies.length
+      '[StreamCine] Catálogo FILMES PEDIDOS solicitado.',
+      'Total:', movies.length,
+      '| filtrados:', filtered.length,
+      '| skip:', skip,
+      '| retornando:', page.length
     );
 
-    const metas = movies.map((m) => ({
+    const metas = page.map((m) => ({
       id: m.id,
       type: 'movie',
       name: m.title,
@@ -865,15 +917,35 @@ builder.defineCatalogHandler(async (args) => {
     return { metas };
   }
 
-  // SÉRIES (normais, de series_episodios.csv)
+  // SÉRIES (normais, de series_episodios.csv) - paginado
   if (type === 'series' && id === 'streamcine_series') {
     const { seriesList } = loadSeriesFromCsv();
+
+    const pageSize = 100;
+    const skip = extra.skip ? parseInt(extra.skip, 10) || 0 : 0;
+    const search = (extra.search || '').toLowerCase().trim();
+
+    let filtered = seriesList;
+
+    if (search) {
+      filtered = seriesList.filter((s) => {
+        const name = (s.name || '').toLowerCase();
+        const group = (s.group || '').toLowerCase();
+        return name.includes(search) || group.includes(search);
+      });
+    }
+
+    const page = filtered.slice(skip, skip + pageSize);
+
     console.log(
-      '[StreamCine] Catálogo SÉRIES solicitado. Total de séries:',
-      seriesList.length
+      '[StreamCine] Catálogo SÉRIES solicitado.',
+      'Total:', seriesList.length,
+      '| filtradas:', filtered.length,
+      '| skip:', skip,
+      '| retornando:', page.length
     );
 
-    const metas = seriesList.map((s) => ({
+    const metas = page.map((s) => ({
       id: s.id,
       type: 'series',
       name: s.name,
@@ -886,15 +958,35 @@ builder.defineCatalogHandler(async (args) => {
     return { metas };
   }
 
-  // NOVELAS (de novelas.csv)
+  // NOVELAS (de novelas.csv) - paginado
   if (type === 'series' && id === 'streamcine_novelas') {
     const { novelaList } = loadNovelasFromCsv();
+
+    const pageSize = 100;
+    const skip = extra.skip ? parseInt(extra.skip, 10) || 0 : 0;
+    const search = (extra.search || '').toLowerCase().trim();
+
+    let filtered = novelaList;
+
+    if (search) {
+      filtered = novelaList.filter((n) => {
+        const name = (n.name || '').toLowerCase();
+        const group = (n.group || '').toLowerCase();
+        return name.includes(search) || group.includes(search);
+      });
+    }
+
+    const page = filtered.slice(skip, skip + pageSize);
+
     console.log(
-      '[StreamCine] Catálogo NOVELAS solicitado. Total de novelas:',
-      novelaList.length
+      '[StreamCine] Catálogo NOVELAS solicitado.',
+      'Total:', novelaList.length,
+      '| filtradas:', filtered.length,
+      '| skip:', skip,
+      '| retornando:', page.length
     );
 
-    const metas = novelaList.map((n) => ({
+    const metas = page.map((n) => ({
       id: n.id,
       type: 'series',
       name: n.name,

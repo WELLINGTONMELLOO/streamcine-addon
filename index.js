@@ -339,7 +339,7 @@ function slugify(str) {
     .replace(/^-+|-+$/g, '');
 }
 
-// ---------- SÉRIES: carrega series_episodios.csv (agrupa por série/temporada/episódio) ----------
+// ---------- SÉRIES: carrega series_episodios.csv ----------
 
 function loadSeriesFromCsv() {
   if (SERIES_CACHE) return SERIES_CACHE;
@@ -487,7 +487,7 @@ function loadSeriesFromCsv() {
   return SERIES_CACHE;
 }
 
-// ---------- NOVELAS: carrega novelas.csv (agrupa por novela/temporada/episódio) ----------
+// ---------- NOVELAS: carrega novelas.csv ----------
 
 function loadNovelasFromCsv() {
   if (NOVELAS_CACHE) return NOVELAS_CACHE;
@@ -736,7 +736,10 @@ const manifest = {
       type: 'tv',
       id: 'streamcine_iptv_channels',
       name: 'StreamCine IPTV',
-      extra: []
+      extra: [
+        { name: 'search', isRequired: false },
+        { name: 'skip', isRequired: false }
+      ]
     },
     {
       type: 'movie',
@@ -772,20 +775,40 @@ const manifest = {
 
 const builder = new addonBuilder(manifest);
 
-// ---------- CATALOG HANDLER ----------
+// ---------- CATALOG HANDLER (com IPTV paginado) ----------
 
 builder.defineCatalogHandler(async (args) => {
-  const { type, id } = args;
+  const { type, id, extra = {} } = args;
 
-  // TV
+  // TV (IPTV)
   if (type === 'tv' && id === 'streamcine_iptv_channels') {
     const channels = loadChannelsFromCsv();
+
+    const pageSize = 100; // qtd de canais por página
+    const skip = extra.skip ? parseInt(extra.skip, 10) || 0 : 0;
+
+    const search = (extra.search || '').toLowerCase().trim();
+    let filtered = channels;
+
+    if (search) {
+      filtered = channels.filter((ch) => {
+        const name = (ch.name || '').toLowerCase();
+        const group = (ch.group || '').toLowerCase();
+        return name.includes(search) || group.includes(search);
+      });
+    }
+
+    const page = filtered.slice(skip, skip + pageSize);
+
     console.log(
-      '[StreamCine] Catálogo TV solicitado. Total de canais:',
-      channels.length
+      '[StreamCine] Catálogo TV solicitado.',
+      'Total canais:', channels.length,
+      '| filtrados:', filtered.length,
+      '| skip:', skip,
+      '| retornando:', page.length
     );
 
-    const metas = channels.map((ch) => ({
+    const metas = page.map((ch) => ({
       id: ch.id,
       type: 'tv',
       name: ch.name,

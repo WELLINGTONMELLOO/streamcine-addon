@@ -267,7 +267,8 @@ function loadMoviesFromCsv() {
   console.log(
     '[StreamCine] Total de filmes carregados do CSV (filmes.csv):',
     movies.length,
-    '| com logo:', withLogo
+    '| com logo:',
+    withLogo
   );
 
   MOVIES_CACHE = movies;
@@ -359,7 +360,8 @@ function loadPersonalMoviesFromCsv() {
   console.log(
     '[StreamCine] Total de filmes pedidos carregados (filmes_pessoais.csv):',
     movies.length,
-    '| com logo:', withLogo
+    '| com logo:',
+    withLogo
   );
 
   PERSONAL_MOVIES_CACHE = movies;
@@ -406,6 +408,11 @@ function loadSeriesFromCsv() {
   if (logoIndex === -1) logoIndex = header.indexOf('capa');
   if (logoIndex === -1) logoIndex = header.indexOf('tvg-logo');
 
+  // NOVO: índices das colunas de episódio
+  const epTitleIndex = header.indexOf('ep_titulo');
+  const epSinopseIndex = header.indexOf('ep_sinopse');
+  const epThumbIndex = header.indexOf('ep_thumb');
+
   // regex pra "Nome S01E08", "Nome [L] S05E14", etc.
   const pattern = /^(.+?)(?:\s*\[.*?\])?\s+S(\d+)E(\d+)$/i;
 
@@ -433,15 +440,28 @@ function loadSeriesFromCsv() {
     let seriesName = fullName;
     let season = 1;
     let episode = 1;
-    let episodeTitle = fullName;
 
     const match = fullName.match(pattern);
     if (match) {
       seriesName = match[1].trim();
       season = parseInt(match[2], 10) || 1;
       episode = parseInt(match[3], 10) || 1;
-      episodeTitle = `E${String(episode).padStart(2, '0')} - ${seriesName}`;
     }
+
+    // NOVO: dados vindos do CSV para o episódio
+    const epTitleCsv =
+      epTitleIndex !== -1 ? (parts[epTitleIndex] || '').trim() : '';
+    const epSinopseCsv =
+      epSinopseIndex !== -1 ? (parts[epSinopseIndex] || '').trim() : '';
+    const epThumbCsv =
+      epThumbIndex !== -1 ? (parts[epThumbIndex] || '').trim() : '';
+
+    // Título final do episódio que será mostrado no Stremio
+    const episodeTitle =
+      epTitleCsv ||
+      (match
+        ? `E${String(episode).padStart(2, '0')} - ${seriesName}`
+        : fullName);
 
     let seriesSlug = slugify(seriesName);
     if (!seriesSlug) {
@@ -479,7 +499,12 @@ function loadSeriesFromCsv() {
       seriesName,
       season,
       episode,
+      // título base
       title: episodeTitle,
+      // NOVO: campos específicos do episódio
+      epTitle: epTitleCsv,
+      epOverview: epSinopseCsv,
+      epThumb: epThumbCsv,
       group,
       logo,
       url
@@ -553,6 +578,11 @@ function loadNovelasFromCsv() {
   if (logoIndex === -1) logoIndex = header.indexOf('capa');
   if (logoIndex === -1) logoIndex = header.indexOf('tvg-logo');
 
+  // NOVO: colunas de episódio específicas de novelas
+  const epTitleIndex = header.indexOf('ep_titulo');
+  const epSinopseIndex = header.indexOf('ep_sinopse');
+  const epThumbIndex = header.indexOf('ep_thumb');
+
   // Mesmo padrão de "Nome S01E280" etc.
   const pattern = /^(.+?)(?:\s*\[.*?\])?\s+S(\d+)E(\d+)$/i;
 
@@ -579,15 +609,27 @@ function loadNovelasFromCsv() {
     let novelaName = fullName;
     let season = 1;
     let episode = 1;
-    let episodeTitle = fullName;
 
     const match = fullName.match(pattern);
     if (match) {
       novelaName = match[1].trim();
       season = parseInt(match[2], 10) || 1;
       episode = parseInt(match[3], 10) || 1;
-      episodeTitle = `E${String(episode).padStart(3, '0')} - ${novelaName}`;
     }
+
+    // NOVO: ler campos de episódio do CSV
+    const epTitleCsv =
+      epTitleIndex !== -1 ? (parts[epTitleIndex] || '').trim() : '';
+    const epSinopseCsv =
+      epSinopseIndex !== -1 ? (parts[epSinopseIndex] || '').trim() : '';
+    const epThumbCsv =
+      epThumbIndex !== -1 ? (parts[epThumbIndex] || '').trim() : '';
+
+    const episodeTitle =
+      epTitleCsv ||
+      (match
+        ? `E${String(episode).padStart(3, '0')} - ${novelaName}`
+        : fullName);
 
     let novelaSlug = slugify(novelaName);
     if (!novelaSlug) {
@@ -626,6 +668,10 @@ function loadNovelasFromCsv() {
       season,
       episode,
       title: episodeTitle,
+      // NOVO
+      epTitle: epTitleCsv,
+      epOverview: epSinopseCsv,
+      epThumb: epThumbCsv,
       group,
       logo,
       url
@@ -732,7 +778,7 @@ function pickBestStream(title, originalUrl) {
 
 const manifest = {
   id: 'org.streamcine.iptv',
-  version: '5.4.0', // versão para forçar recarregamento no Stremio após mudanças
+  version: '5.5.0', // versão para forçar recarregamento no Stremio após mudanças
   name: 'StreamCine',
   description:
     'Canais de TV, filmes, filmes pedidos, séries e novelas a partir de listas e CSVs personalizados',
@@ -852,10 +898,14 @@ builder.defineCatalogHandler(async (args) => {
 
     console.log(
       '[StreamCine] Catálogo TV solicitado.',
-      'Total canais:', channels.length,
-      '| filtrados:', filtered.length,
-      '| skip:', skip,
-      '| retornando:', page.length
+      'Total canais:',
+      channels.length,
+      '| filtrados:',
+      filtered.length,
+      '| skip:',
+      skip,
+      '| retornando:',
+      page.length
     );
 
     const metas = page.map((ch) => ({
@@ -893,10 +943,14 @@ builder.defineCatalogHandler(async (args) => {
 
     console.log(
       '[StreamCine] Catálogo FILMES solicitado.',
-      'Total:', movies.length,
-      '| filtrados:', filtered.length,
-      '| skip:', skip,
-      '| retornando:', page.length
+      'Total:',
+      movies.length,
+      '| filtrados:',
+      filtered.length,
+      '| skip:',
+      skip,
+      '| retornando:',
+      page.length
     );
 
     const metas = page.map((m) => ({
@@ -935,10 +989,14 @@ builder.defineCatalogHandler(async (args) => {
 
     console.log(
       '[StreamCine] Catálogo FILMES PEDIDOS solicitado.',
-      'Total:', movies.length,
-      '| filtrados:', filtered.length,
-      '| skip:', skip,
-      '| retornando:', page.length
+      'Total:',
+      movies.length,
+      '| filtrados:',
+      filtered.length,
+      '| skip:',
+      skip,
+      '| retornando:',
+      page.length
     );
 
     const metas = page.map((m) => ({
@@ -977,10 +1035,14 @@ builder.defineCatalogHandler(async (args) => {
 
     console.log(
       '[StreamCine] Catálogo SÉRIES solicitado.',
-      'Total:', seriesList.length,
-      '| filtradas:', filtered.length,
-      '| skip:', skip,
-      '| retornando:', page.length
+      'Total:',
+      seriesList.length,
+      '| filtradas:',
+      filtered.length,
+      '| skip:',
+      skip,
+      '| retornando:',
+      page.length
     );
 
     const metas = page.map((s) => ({
@@ -1018,10 +1080,14 @@ builder.defineCatalogHandler(async (args) => {
 
     console.log(
       '[StreamCine] Catálogo NOVELAS solicitado.',
-      'Total:', novelaList.length,
-      '| filtradas:', filtered.length,
-      '| skip:', skip,
-      '| retornando:', page.length
+      'Total:',
+      novelaList.length,
+      '| filtradas:',
+      filtered.length,
+      '| skip:',
+      skip,
+      '| retornando:',
+      page.length
     );
 
     const metas = page.map((n) => ({
@@ -1159,11 +1225,14 @@ builder.defineMetaHandler(async (args) => {
       return { meta: null };
     }
 
+    // Usa os campos enriquecidos de episódio
     const videos = episodes.map((ep) => ({
       id: ep.id,
-      title: ep.title,
+      title: ep.epTitle || ep.title,
       season: ep.season,
-      episode: ep.episode
+      episode: ep.episode,
+      thumbnail: ep.epThumb || ep.logo || undefined,
+      overview: ep.epOverview || undefined
     }));
 
     const meta = {
@@ -1264,7 +1333,10 @@ builder.defineStreamHandler(async (args) => {
       return { streams: [] };
     }
 
-    console.log('[StreamCine] Reproduzindo SÉRIE/NOVELA ep:', episode.seriesName);
+    console.log(
+      '[StreamCine] Reproduzindo SÉRIE/NOVELA ep:',
+      episode.seriesName
+    );
     console.log('[StreamCine] Temp/Ep:', episode.season, episode.episode);
     console.log('[StreamCine] URL original:', episode.url);
 
